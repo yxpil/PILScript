@@ -1,3 +1,12 @@
+# PILScript 测试说明
+
+- 测试完成：是（2026-10-04）
+- 测试日期：2026-10-04
+- 测试内容：集成测试共 29（lang 12 / persistence 4 / ffi 3 / stress 3 / injection 4 / hook_lifecycle 3）；注入：XSS/SQLi 字符串作数据逐字节往返、串中代码不求值、FFI 字符串 NUL 字节被拒、路径类型混淆干净报错；钩子：FFI 回调注册→按位置传参→未注册/越权拒绝→跨会话失败隔离。
+- 运行命令：先 `cargo build`（生成 demo_lib.dll），再 `cargo test`
+- 测试框架：Rust `#[cfg(test)]` + `run_source` 黑盒解释器测试
+- 模型：豆包（Doubao）生成
+
 # 测试说明（PILScript）
 
 PILScript 是一个脚本语言解释器（lexer → parser → interpreter）。测试全部是
