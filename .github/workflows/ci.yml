@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build (release)
+        run: cargo build --release --all-targets
+
+      - name: Run tests (language core / FFI / persistence / stress)
+        run: cargo test --release
+
+      - name: Clippy (strict)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Smoke — run example scripts
+        shell: bash
+        run: |
+          ./target/release/pilscript run examples/basics.pil
+          # FFI 示例：动态库扩展名随平台不同
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            LIB=target/release/demo_lib.dll
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            LIB=target/release/libdemo_lib.dylib
+          else
+            LIB=target/release/libdemo_lib.so
+          fi
+          sed -i.bak "s|target/debug/demo_lib.dll|$LIB|" examples/ffi.pil
+          ./target/release/pilscript run examples/ffi.pil
+          ./target/release/pilscript run examples/bench.pil

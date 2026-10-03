@@ -2,6 +2,7 @@
 
 use crate::ast::*;
 use crate::builtins;
+use crate::config::Config;
 use crate::foreign::ForeignFn;
 use crate::value::{Closure, Value};
 use std::cell::{Cell, RefCell};
@@ -62,6 +63,7 @@ pub enum Flow {
 
 pub struct Interpreter {
     pub globals: Rc<RefCell<Env>>,
+    pub config: Config,
     depth: Cell<usize>,
 }
 
@@ -75,9 +77,13 @@ impl Default for Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
+        Self::with_config(Config::default())
+    }
+
+    pub fn with_config(config: Config) -> Self {
         let globals = Env::new();
-        builtins::install(&globals);
-        Interpreter { globals, depth: Cell::new(0) }
+        builtins::install(&globals, config);
+        Interpreter { globals, config, depth: Cell::new(0) }
     }
 
     pub fn run_program(&mut self, stmts: &[Stmt]) -> InterpResult<()> {
@@ -153,7 +159,7 @@ impl Interpreter {
                 let closure = Closure {
                     name: Some(name.clone()),
                     params: params.clone(),
-                    body: Rc::new(body.clone()),
+                    body: body.clone(),
                     env: env.clone(),
                 };
                 env.borrow_mut().define(name.clone(), Value::Function(Rc::new(closure)));
@@ -181,10 +187,10 @@ impl Interpreter {
             Expr::Str(s) => Ok(Value::Str(s.clone())),
             Expr::Bool(b) => Ok(Value::Bool(*b)),
             Expr::Null => Ok(Value::Null),
-            Expr::Ident(name) => env
+            Expr::Ident { name, line } => env
                 .borrow()
                 .lookup(name)
-                .ok_or_else(|| format!("未定义的变量 `{}`", name)),
+                .ok_or_else(|| format!("第 {} 行：未定义的变量 `{}`", line, name)),
             Expr::Array(items) => {
                 let mut vals = Vec::with_capacity(items.len());
                 for item in items {
@@ -238,7 +244,7 @@ impl Interpreter {
                 let closure = Closure {
                     name: None,
                     params: params.clone(),
-                    body: Rc::new(body.clone()),
+                    body: body.clone(),
                     env: env.clone(),
                 };
                 Ok(Value::Function(Rc::new(closure)))
@@ -357,11 +363,14 @@ impl Interpreter {
 
     fn assign_to(&mut self, target: &Expr, value: Value, env: &Rc<RefCell<Env>>) -> InterpResult<Value> {
         match target {
-            Expr::Ident(name) => {
+            Expr::Ident { name, line } => {
                 if env.borrow_mut().assign(name, value.clone()) {
                     Ok(value)
                 } else {
-                    Err(format!("不能给未定义的变量 `{}` 赋值（请先用 let 声明）", name))
+                    Err(format!(
+                        "第 {} 行：不能给未定义的变量 `{}` 赋值（请先用 let 声明）",
+                        line, name
+                    ))
                 }
             }
             Expr::Index { obj, index } => {

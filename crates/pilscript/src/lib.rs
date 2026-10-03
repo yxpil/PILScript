@@ -2,32 +2,72 @@
 
 pub mod ast;
 pub mod builtins;
+pub mod config;
 pub mod foreign;
 pub mod interp;
 pub mod lexer;
 pub mod parser;
 pub mod value;
 
-/// 一站式入口：源码 -> 执行。
+use config::Config;
+
+/// 一站式入口：源码 -> 执行（默认权限全开）。
 /// 在大栈线程上运行，允许较深的脚本递归。
 pub fn run_source(src: &str) -> Result<(), String> {
+    run_source_with(src, Config::default())
+}
+
+/// 带能力配置的运行入口（嵌入方使用）。
+///
+/// 容错保证：
+/// - 脚本逻辑错误 / 语法错误 -> 结构化错误信息（带行号）
+/// - 无限递归 -> 调用深度上限拦截
+/// - 解释器内部 bug 触发的 panic -> catch_unwind 隔离，返回 [E9001] 而不是崩溃进程
+pub fn run_source_with(src: &str, config: Config) -> Result<(), String> {
     std::thread::scope(|s| {
-        std::thread::Builder::new()
+        let handle = std::thread::Builder::new()
             .stack_size(256 * 1024 * 1024)
-            .spawn_scoped(s, move || run_source_inner(src))
-            .expect("spawn eval thread")
-            .join()
-            .expect("eval thread panicked")
+            .spawn_scoped(s, move || run_inner(src, config))
+            .expect("spawn eval thread");
+        match handle.join() {
+            Ok(result) => result,
+            Err(panic_payload) => Err(format!(
+                "[E9001] 解释器内部错误（已隔离，进程未崩溃）: {}",
+                panic_msg(&panic_payload)
+            )),
+        }
     })
 }
 
-fn run_source_inner(src: &str) -> Result<(), String> {
-    let tokens = lexer::lex(src).map_err(|e| format!("词法错误: {}", e))?;
-    let stmts = parser::Parser::new(tokens)
-        .parse_program()
-        .map_err(|e| e.to_string())?;
-    let mut interp = interp::Interpreter::new();
-    interp.run_program(&stmts).map_err(|e| format!("运行时错误: {}", e))
+fn run_inner(src: &str, config: Config) -> Result<(), String> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let tokens = lexer::lex(src).map_err(|e| format!("[E1001] 词法错误: {}", e))?;
+        let stmts = parser::Parser::new(tokens)
+            .parse_program()
+            .map_err(|e| format!("[E2001] 语法错误: {}", e))?;
+        let mut interp = interp::Interpreter::with_config(config);
+        interp
+            .run_program(&stmts)
+            .map_err(|e| format!("[E3001] 运行时错误: {}", e))
+    }));
+    match result {
+        Ok(r) => r,
+        Err(panic_payload) => Err(format!(
+            "[E9001] 解释器内部错误（已隔离，进程未崩溃）: {}",
+            panic_msg(&panic_payload)
+        )),
+    }
+}
+
+/// 从 panic payload 中提取可读信息
+fn panic_msg(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(s) = payload.downcast_ref::<&str>() {
+        s.to_string()
+    } else if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "未知 panic".into()
+    }
 }
 
 /// 供 REPL 使用的增量求值器
@@ -45,6 +85,10 @@ impl Default for Repl {
 impl Repl {
     pub fn new() -> Self {
         Repl { interp: interp::Interpreter::new(), buffer: String::new() }
+    }
+
+    pub fn with_config(config: Config) -> Self {
+        Repl { interp: interp::Interpreter::with_config(config), buffer: String::new() }
     }
 
     /// 是否有未完成的多行输入正在缓冲

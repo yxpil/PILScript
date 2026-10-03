@@ -32,10 +32,13 @@ impl Parser {
         while self.eat(&Tok::Newline) {}
     }
 
-    /// 语句结束：分号、换行（Go 风格自动分号）皆可
+    /// 语句结束：分号、换行（Go 风格自动分号）、或紧随的 `}` 皆可
     fn expect_stmt_end(&mut self) -> ParseResult<()> {
         if self.check(&Tok::Semi) || self.check(&Tok::Newline) || self.check(&Tok::Eof) {
             self.advance();
+            Ok(())
+        } else if self.check(&Tok::RBrace) {
+            // `{ ... }` 单行块：语句结束于块闭合（不消费 `}`）
             Ok(())
         } else {
             Err(format!(
@@ -162,7 +165,7 @@ impl Parser {
         self.expect(&Tok::Function)?;
         let name = self.expect_ident()?;
         let (params, body) = self.parse_fn_rest()?;
-        Ok(Stmt::FnDecl { name, params, body })
+        Ok(Stmt::FnDecl { name, params, body: std::rc::Rc::new(body) })
     }
 
     fn parse_fn_rest(&mut self) -> ParseResult<(Vec<String>, Vec<Stmt>)> {
@@ -282,7 +285,7 @@ impl Parser {
         );
         if is_assign {
             match &left {
-                Expr::Ident(_) | Expr::Index { .. } | Expr::Member { .. } => {}
+                Expr::Ident { .. } | Expr::Index { .. } | Expr::Member { .. } => {}
                 _ => return Err(format!("第 {} 行：无效的赋值目标", self.line())),
             }
             let op = self.advance().tok;
@@ -451,7 +454,7 @@ impl Parser {
             }
             Tok::Ident(name) => {
                 self.advance();
-                Ok(Expr::Ident(name))
+                Ok(Expr::Ident { name, line: self.line() })
             }
             Tok::LParen => {
                 self.advance();
@@ -514,7 +517,7 @@ impl Parser {
             Tok::Function => {
                 self.advance();
                 let (params, body) = self.parse_fn_rest()?;
-                Ok(Expr::Fn { params, body })
+                Ok(Expr::Fn { params, body: std::rc::Rc::new(body) })
             }
             other => Err(format!(
                 "第 {} 行：语法错误，意外的 {}",

@@ -1,0 +1,26 @@
+// 性能基准：解释器自身的吞吐参考
+// 运行：pilscript run examples/bench.pil
+
+function fib(n) {
+    if (n < 2) { return n }
+    return fib(n - 1) + fib(n - 2)
+}
+
+// 预热
+fib(10)
+
+let start = time()
+let result = fib(25)
+let elapsed = time() - start
+
+print("fib(25) =", result)
+print("耗时", elapsed, "ms")
+
+// 循环 + 数组操作吞吐
+let start2 = time()
+let sum = 0
+for (let i = 0; i < 100000; i += 1) {
+    sum += i % 7
+}
+let elapsed2 = time() - start2
+print("10 万次循环求和 =", sum, "，耗时", elapsed2, "ms")
