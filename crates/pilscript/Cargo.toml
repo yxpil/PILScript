@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "A tiny JavaScript-flavoured scripting language interpreter written in Rust, with C-ABI FFI for calling libraries from any language."
-repository = "https://github.com/OWNER/pilscript"
+repository = "https://github.com/yxpil/PILScript"
 keywords = ["interpreter", "scripting-language", "ffi", "rust"]
 categories = ["compilers", "command-line-utilities"]
 
