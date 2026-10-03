@@ -1,0 +1,31 @@
+// 跨语言 FFI 调用演示：
+// demo_lib.dll 是用 Rust 编译成 C-ABI 的动态库（见 crates/demo_lib）。
+// 任何能导出 C ABI 的语言（C/C++/Rust/Zig/Nim/Go…）的库都可以这样调用。
+
+// Windows 上加载 .dll；Linux/macOS 上对应 .so/.dylib
+let lib = dlopen("target/debug/demo_lib.dll");
+
+// 按签名绑定：lib.fn("符号名", [参数类型], 返回类型)
+let add = lib.fn("add_i64", ["i64", "i64"], "i64");
+let mul = lib.fn("mul_f64", ["f64", "f64"], "f64");
+let mix = lib.fn("mix", ["i64", "f64", "i64"], "f64");
+let root = lib.fn("sqrt_f64", ["f64"], "f64");
+let shout = lib.fn("shout", ["str"], "str");
+let even = lib.fn("is_even", ["i64"], "bool");
+
+print("add_i64(20, 22)      =", add(20, 22));
+print("mul_f64(1.5, 4.0)    =", mul(1.5, 4.0));
+print("mix(10, 0.5, 6)      =", mix(10, 0.5, 6));
+print("sqrt_f64(144)        =", root(144));
+print("shout(\"hello ffi\")  =", shout("hello ffi"));
+
+let n = 42;
+if (even(n)) {
+    print(n, "是偶数（跨语言返回 bool）");
+} else {
+    print(n, "是奇数");
+}
+
+// FFI 函数也是普通值，可以放进数组、传给高阶函数
+let ops = [add, mul];
+print("高阶调用:", ops[0](100, 1), ops[1](2.5, 2.0));

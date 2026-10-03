@@ -1,0 +1,9 @@
+[package]
+name = "demo_lib"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "demo_lib"
+crate-type = ["cdylib"]

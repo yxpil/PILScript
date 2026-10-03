@@ -1,0 +1,20 @@
+# Rust / Cargo
+/target
+
+# 动态库构建产物
+*.dll
+*.so
+*.dylib
+*.pdb
+
+# 编辑器与系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# 日志与环境
+*.log
+.env
+.env.local

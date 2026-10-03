@@ -1,0 +1,16 @@
+[package]
+name = "pilscript"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "A tiny JavaScript-flavoured scripting language interpreter written in Rust, with C-ABI FFI for calling libraries from any language."
+repository = "https://github.com/OWNER/pilscript"
+keywords = ["interpreter", "scripting-language", "ffi", "rust"]
+categories = ["compilers", "command-line-utilities"]
+
+[[bin]]
+name = "pilscript"
+path = "src/main.rs"
+
+[dependencies]
+libloading = "0.8"
