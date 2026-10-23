@@ -92,12 +92,13 @@ fn ffi_ffi_values_are_first_class() {
 #[test]
 fn ffi_error_reporting() {
     let path = demo_lib_path();
+    // Linux 的 dlopen("") 会返回主程序句柄，空路径不能用来测试失败。
     let missing = format!(
-        r#"dlopen("{}"); let lib = dlopen(""); "#,
-        path
+        r#"dlopen("{}"); let lib = dlopen("{}.does-not-exist"); "#,
+        path, path
     );
     match run_source(&missing) {
-        Ok(()) => panic!("空路径 dlopen 应当失败"),
+        Ok(()) => panic!("不存在的路径 dlopen 应当失败"),
         Err(e) => assert!(e.contains("dlopen"), "实际错误: {}", e),
     }
 
