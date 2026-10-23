@@ -19,14 +19,15 @@ fn demo_lib_path() -> String {
         .parent()
         .unwrap()
         .join("target");
+    let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
     let dll = if cfg!(windows) {
-        "debug/demo_lib.dll"
+        "demo_lib.dll"
     } else if cfg!(target_os = "macos") {
-        "debug/libdemo_lib.dylib"
+        "libdemo_lib.dylib"
     } else {
-        "debug/libdemo_lib.so"
+        "libdemo_lib.so"
     };
-    let path = target.join(dll);
+    let path = target.join(profile).join(dll);
     if !path.exists() {
         panic!("demo_lib 未构建: 请先运行 `cargo build`（期望 {}）", path.display());
     }
